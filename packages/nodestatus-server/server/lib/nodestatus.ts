@@ -1,16 +1,25 @@
 import { Server } from 'http';
 import { isIPv4 } from 'net';
+import timers from 'timers/promises';
 import ws from 'ws';
 import { decode } from '@msgpack/msgpack';
 import { IPv6 } from 'ipaddr.js';
+import { getLogger } from 'log4js';
 import {
   Box, ServerItem, BoxItem, IWebSocket
 } from '../../types/server';
 import {
   authServer, createNewEvent, getListServers, getServer, resolveEvent
 } from '../controller/status';
-import { logger, emitter } from './utils';
+import {
+  logger, emitter
+} from './utils';
 import setupHeartbeat from './heartbeat';
+
+const loggerConnected = getLogger('Connected');
+const loggerConnecting = getLogger('Connecting');
+const loggerDisconnected = getLogger('Disconnected');
+const loggerBanned = getLogger('Banned');
 
 function callHook(instance: NodeStatus, hook: keyof NodeStatus, ...args: any[]) {
   try {
@@ -25,7 +34,6 @@ function callHook(instance: NodeStatus, hook: keyof NodeStatus, ...args: any[]) 
 type Options = {
   interval: number;
   pingInterval: number;
-  verbose: boolean;
 };
 
 export default class NodeStatus {
@@ -38,7 +46,7 @@ export default class NodeStatus {
   private ioConn = new ws.Server({ noServer: true });
 
   /* username -> socket */
-  private userMap = new Map<string, ws>();
+  private userMap = new Map<string, IWebSocket>();
 
   /* ip -> banned */
   private isBanned = new Map<string, boolean>();
@@ -65,13 +73,13 @@ export default class NodeStatus {
     socket.close();
     if (this.isBanned.get(address)) return;
     this.isBanned.set(address, true);
-    this.options.verbose && logger.warn(`${address} was banned ${t} seconds, reason: ${reason}`);
+    loggerBanned.debug('Address:', address, '|', 'Reason:', reason);
     callHook(this, 'onServerBanned', address, reason);
     setTimeout(() => this.isBanned.delete(address), t * 1000);
   }
 
   public launch(): Promise<void> {
-    const { verbose, interval, pingInterval } = this.options;
+    const { interval, pingInterval } = this.options;
 
     setupHeartbeat(this.ioConn, pingInterval);
     setupHeartbeat(this.ioPub, pingInterval);
@@ -99,7 +107,7 @@ export default class NodeStatus {
       }
       callHook(this, 'onServerConnect', socket);
       socket.send('Authentication required');
-      verbose && logger.info(`${address} is trying to connect to server`);
+      loggerConnecting.debug(`Address: ${address}`);
       socket.once('message', async (buf: Buffer) => {
         if (this.isBanned.get(address)) {
           socket.send('You are banned. Please try connecting after 60 / 120 seconds');
@@ -114,9 +122,31 @@ export default class NodeStatus {
             socket.send('Wrong username and/or password.');
             return this.setBan(socket, address, 120, 'Wrong username and/or password.');
           }
+          /*
+          * 当客户端与服务端断开连接时，客户端会自动重连。但是服务端可能需要等待下一个心跳检测周期才能断开与客户端的连接
+          * Temporary Fix
+          * Work in Progress
+          *   */
           if (Object.keys(this.servers[username]?.status || {}).length) {
-            socket.send('Only one connection per user allowed.');
-            return this.setBan(socket, address, 120, 'Only one connection per user allowed.');
+            const preSocket = this.userMap.get(username);
+            if (preSocket) {
+              if (preSocket.ipAddress === address) {
+                preSocket.terminate();
+              } else {
+                preSocket.isAlive = false;
+                preSocket.ping();
+                const ac = new AbortController();
+                const promise = timers.setTimeout((pingInterval + 5) * 1000, null, { signal: ac.signal });
+                preSocket.on('close', () => ac.abort());
+                try {
+                  await promise;
+                  socket.send('Only one connection per user allowed.');
+                  return this.setBan(socket, address, 120, 'Only one connection per user allowed.');
+                  // eslint-disable-next-line no-empty
+                } catch (error: any) {
+                }
+              }
+            }
           }
         } catch (error: any) {
           socket.send('Please check your login details.');
@@ -132,7 +162,7 @@ export default class NodeStatus {
           ipType = 'IPv4';
         }
         socket.send(`You are connecting via: ${ipType}`);
-        logger.info(`${address} has connected to server`);
+        loggerConnected.info(`Username: ${username} | Address: ${address}`);
         resolveEvent(username).then();
         socket.on('message', (buf: Buffer) => this.servers[username].status = decode(buf) as ServerItem['status']);
         this.userMap.set(username, socket);
@@ -141,7 +171,7 @@ export default class NodeStatus {
           this.userMap.delete(username);
           this.servers[username] && (this.servers[username].status = {});
           createNewEvent(username).then();
-          logger.warn(`${address} disconnected`);
+          loggerDisconnected.warn(`Username: ${username} | Address: ${address}`);
           callHook(this, 'onServerDisconnected', socket, username);
         });
       });

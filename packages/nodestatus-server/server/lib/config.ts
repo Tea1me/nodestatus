@@ -2,7 +2,6 @@ import { platform, homedir } from 'os';
 import { resolve } from 'path';
 import dotenv from 'dotenv';
 import { program } from 'commander';
-import { logger } from './utils';
 
 if (process.env.NODE_ENV !== 'TEST') {
   dotenv.config({ path: resolve(homedir(), '.nodestatus/.env.local') });
@@ -32,6 +31,7 @@ const config = {
   interval: Number(process.env.INTERVAL || options.interval),
   verbose: process.env.VERBOSE === 'true',
   theme: process.env.THEME || 'hotaru-theme',
+  pingInterval: Number(process.env.PING_INTERVAL || 30),
 
   useIpc: process.env.USE_IPC !== 'false',
   useWeb: process.env.USE_WEB !== 'false',
@@ -45,7 +45,6 @@ const config = {
 
   pushTimeOut: Number(process.env.PUSH_TIMEOUT) || 30,
   pushDelay: Number(process.env.PUSH_DELAY) || 15,
-  pingInterval: Number(process.env.PING_INTERVAL || 30000),
 
   telegram: {
     proxy: process.env.TGBOT_PROXY,
@@ -54,15 +53,5 @@ const config = {
     web_hook: process.env.TGBOT_WEBHOOK
   }
 };
-
-if (Number.isNaN(config.port)) {
-  logger.fatal('Please enter the correct port number.');
-  process.exit(1);
-}
-
-if (Number.isNaN(config.interval)) {
-  logger.fatal('Please enter the correct interval.');
-  process.exit(1);
-}
 
 export default config;
