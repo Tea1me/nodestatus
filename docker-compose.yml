@@ -2,6 +2,7 @@ version: "3"
 services:
   nodestatus:
     image: cokemine/nodestatus
+    container_name: nodestatus
     restart: always
 
     environment:
@@ -9,6 +10,7 @@ services:
       VERBOSE: "false"
       THEME: "hotaru-theme"
       PING_INTERVAL: 30
+      TZ: Asia/Shanghai
 
       USE_PUSH: "true"
       USE_IPC: "true"
@@ -18,7 +20,7 @@ services:
       WEB_PASSWORD: ""
       WEB_SECRET: ""
 
-      PUSH_TIMEOUT: 30
+      PUSH_TIMEOUT: 120
       PUSH_DELAY: 15
 
       TGBOT_TOKEN: ""
@@ -32,4 +34,3 @@ services:
 
     ports:
       - "35601:35601"
-

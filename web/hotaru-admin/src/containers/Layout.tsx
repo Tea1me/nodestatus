@@ -1,7 +1,6 @@
 import React, { FC, useState } from 'react';
-import { Route, Switch, Redirect } from 'react-router-dom';
 import { Drawer, Layout as AntdLayout } from 'antd';
-import routes from '../routes/admin';
+import AdminRoutes from '../routes/AdminRoutes';
 import Sider from '../components/Sider';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -11,7 +10,6 @@ const Layout: FC = () => {
   const [collapsed, setCollapsed] = useState(false);
 
   const toggleCollapsed = () => setCollapsed(state => !state);
-
   return (
     <AntdLayout className="min-h-screen">
       {/* Desktop SideBar */}
@@ -32,6 +30,8 @@ const Layout: FC = () => {
         onClose={() => setCollapsed(false)}
         width={208}
         bodyStyle={{ padding: 0 }}
+        headerStyle={{ display: 'none' }}
+        closeIcon={null}
       >
         <Sider isCollapsed={collapsed} />
       </Drawer>
@@ -42,17 +42,7 @@ const Layout: FC = () => {
         <AntdLayout.Content>
           <div className="container mx-auto px-6 max-w-screen-xl">
             <StatusContextProvider>
-              <Switch>
-                {routes.map(route => (
-                  <Route
-                    exact
-                    key={route.path}
-                    path={`${route.path}`}
-                    component={route.component}
-                  />
-                ))}
-                <Redirect exact from="/" to="/dashboard" />
-              </Switch>
+              <AdminRoutes />
             </StatusContextProvider>
           </div>
         </AntdLayout.Content>

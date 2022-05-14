@@ -1,6 +1,6 @@
 {
   "name": "nodestatus-server",
-  "version": "1.2.3-beta.4",
+  "version": "1.2.5-beta.3",
   "repository": {
     "type": "git",
     "url": "https://github.com/cokemine/nodestatus.git",
@@ -20,20 +20,19 @@
     "prisma"
   ],
   "scripts": {
-    "postinstall": "node scripts/init.js",
-    "prestart": "node scripts/init.js",
-    "pretest": "node scripts/init.js",
-    "start": "node build/app.js",
-    "dev": "cross-env NODE_ENV=development rollup -c --watch",
     "build": "rollup -c",
-    "lint": "eslint . --ext .js --ext .ts --ignore-pattern build --ignore-pattern dist --fix"
+    "dev": "cross-env NODE_ENV=development rollup -c --watch",
+    "postinstall": "node scripts/init.js",
+    "lint": "eslint . --ext .js --ext .ts --ignore-pattern build --ignore-pattern dist --fix",
+    "prestart": "node scripts/init.js",
+    "start": "node build/app.js",
+    "pretest": "node scripts/init.js"
   },
   "dependencies": {
-    "@prisma/client": "3.9.1",
+    "@prisma/client": "^3.13.0",
     "dotenv": "^16.0.0",
     "readable-stream": "^3.6.0",
-    "replace-in-file": "^6.3.2",
-    "telegraf": "^4.4.2"
+    "replace-in-file": "^6.3.2"
   },
   "devDependencies": {
     "@koa/router": "^10.1.1",
@@ -47,7 +46,7 @@
     "@types/ws": "^8.2.2",
     "bcryptjs": "^2.4.3",
     "classic-theme": "workspace:*",
-    "commander": "^8.3.0",
+    "commander": "v9.2.0",
     "cross-env": "^7.0.3",
     "encoding": "^0.1.13",
     "hotaru-admin": "workspace:*",
@@ -65,9 +64,10 @@
     "koa2-connect-history-api-fallback": "^0.1.3",
     "log4js": "^6.3.0",
     "pm2": "^5.1.2",
-    "prisma": "3.9.1",
+    "prisma": "^3.13.0",
+    "telegraf": "^4.7.0",
     "typescript": "^4.4.4",
-    "vite": "^2.6.13",
+    "vite": "^2.9.8",
     "ws": "^8.4.2"
   },
   "optionalDependencies": {

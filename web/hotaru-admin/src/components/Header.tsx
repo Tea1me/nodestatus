@@ -3,7 +3,7 @@ import { Avatar, Dropdown, Menu } from 'antd';
 import {
   UserOutlined, MenuFoldOutlined, MenuUnfoldOutlined, LogoutOutlined
 } from '@ant-design/icons';
-import { useHistory } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 interface Props {
   collapsed: {
@@ -13,20 +13,26 @@ interface Props {
 }
 
 const Header: FC<Props> = props => {
-  const history = useHistory();
+  const navigate = useNavigate();
   const { isCollapsed, toggleCollapsed } = props.collapsed;
 
   const menu = (
-    <Menu>
-      <Menu.Item onClick={() => {
-        localStorage.removeItem('token');
-        history.push('/login');
+    <Menu
+      items={[
+        {
+          key: 'logout',
+          label: 'Logout',
+          icon: <LogoutOutlined className="mr-2 align-middle" />,
+          className: 'align-middle'
+        }
+      ]}
+      onClick={({ key }) => {
+        if (key === 'logout') {
+          localStorage.removeItem('token');
+          navigate('/login');
+        }
       }}
-      >
-        <LogoutOutlined className="mr-2 align-middle" />
-        <span className="align-middle">Logout</span>
-      </Menu.Item>
-    </Menu>
+    />
   );
 
   return (
@@ -35,7 +41,7 @@ const Header: FC<Props> = props => {
         className: 'text-2xl',
         onClick: toggleCollapsed
       })}
-      <Dropdown overlay={menu} placement="bottomCenter">
+      <Dropdown overlay={menu} placement="bottom">
         <Avatar size={40} icon={<UserOutlined />} />
       </Dropdown>
     </div>

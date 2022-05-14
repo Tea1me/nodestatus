@@ -1,7 +1,6 @@
 import { timingSafeEqual } from 'crypto';
 import { Telegraf } from 'telegraf';
 import HttpsProxyAgent from 'https-proxy-agent';
-import { IWebSocket } from '../../types/server';
 import { logger } from './utils';
 import type NodeStatus from './nodestatus';
 
@@ -17,16 +16,14 @@ type PushOptions = {
 
 export default function createPush(this: NodeStatus, options: PushOptions) {
   const pushList: Array<(message: string) => void> = [];
-  /* ip -> timer */
-  const timerMap = new Map<string, NodeJS.Timer>();
   /* Username -> timer */
-  const timerUsernameMap = new Map<string, NodeJS.Timer>();
+  const timerMap = new Map<string, NodeJS.Timer>();
 
   const entities = new Set(['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!', '\\']);
 
   const parseEntities = (msg: any): string => {
     let str: string;
-    if (typeof msg !== 'string') str = msg.toString();
+    if (typeof msg !== 'string') str = msg?.toString() || '';
     else str = msg;
     let newStr = '';
     for (const char of str) {
@@ -38,10 +35,16 @@ export default function createPush(this: NodeStatus, options: PushOptions) {
     return newStr;
   };
 
-  const getBotStatus = (): string => {
+  const getBotStatus = (targets: string[]): string => {
     let str = '';
-    let online = 0;
+    let total = 0, online = 0;
     this.serversPub.forEach(obj => {
+      if (targets.length) {
+        if (!targets.some(target => obj.name.toLocaleLowerCase().includes(target))) {
+          return;
+        }
+      }
+      total++;
       const item = new Proxy(obj, {
         get(target, key) {
           const value = Reflect.get(target, key);
@@ -65,7 +68,7 @@ export default function createPush(this: NodeStatus, options: PushOptions) {
       str += `硬盘: ${Math.round((item.status.hdd_used / item.status.hdd_total) * 100)}% \n`;
       str += '\n';
     });
-    return `🍊*NodeStatus* \n🤖 当前有 ${this.serversPub.length} 台服务器, 其中在线 ${online} 台\n\n${str}`;
+    return `🍊*NodeStatus* \n🤖 当前有 ${total} 台服务器, 其中在线 ${online} 台\n\n${str}`;
   };
 
   const tgConfig = options.telegram;
@@ -91,8 +94,22 @@ export default function createPush(this: NodeStatus, options: PushOptions) {
     });
 
     bot.command('status', ctx => {
+      const { entities } = ctx.message;
+      const msg = ctx.message.text.toLocaleLowerCase().split('');
+      if (entities) {
+        let len = 0;
+        entities.forEach(entity => {
+          msg.splice(entity.offset - len, entity.length);
+          len += entity.length;
+        });
+      }
+      const targets = msg
+        .join('')
+        .split(' ')
+        .map(item => item.trim())
+        .filter(item => item);
       if (chatId.has(ctx.message.chat.id.toString())) {
-        ctx.reply(getBotStatus(), { parse_mode: 'MarkdownV2' });
+        ctx.reply(getBotStatus(targets), { parse_mode: 'MarkdownV2' });
       } else {
         ctx.reply('🍊NodeStatus\n*No permission*', { parse_mode: 'MarkdownV2' });
       }
@@ -119,34 +136,29 @@ export default function createPush(this: NodeStatus, options: PushOptions) {
     pushList.push(message => [...chatId].map(id => bot.telegram.sendMessage(id, `${message}`, { parse_mode: 'MarkdownV2' })));
   }
 
-  this.onServerConnected = (socket: IWebSocket, username) => {
-    const ip = socket.ipAddress;
-    if (ip) {
-      const timer = timerMap.get(ip) || timerUsernameMap.get(username);
-      if (timer) {
-        clearTimeout(timer);
-        timerMap.delete(ip);
-        timerUsernameMap.delete(username);
-      } else {
-        return Promise.all(pushList.map(
-          fn => fn(`🍊*NodeStatus* \n😀 One new server has connected\\! \n\n *用户名*: ${parseEntities(username)} \n *节点名*: ${parseEntities(this.servers[username].name)} \n *时间*: ${parseEntities(new Date())}`)
-        ));
-      }
+  this._serverConnectedPush = (socket, username) => {
+    const timer = timerMap.get(username);
+    if (timer) {
+      clearTimeout(timer);
+      timerMap.delete(username);
+    } else {
+      return Promise.all(pushList.map(
+        fn => fn(`🍊*NodeStatus* \n😀 One new server has connected\\! \n\n *用户名*: ${parseEntities(username)} \n *节点名*: ${parseEntities(this.servers[username].name)} \n *时间*: ${parseEntities(new Date())}`)
+      ));
     }
   };
-  this.onServerDisconnected = (socket: IWebSocket, username) => {
-    const ip = socket.ipAddress;
+  this._serverDisconnectedPush = (socket, username, cb) => {
+    const now = new Date();
     const timer = setTimeout(
       () => {
         Promise.all(pushList.map(
-          fn => fn(`🍊*NodeStatus* \n😰 One server has disconnected\\! \n\n *用户名*: ${parseEntities(username)} \n *节点名*: ${parseEntities(this.servers[username]?.name)} \n *时间*: ${parseEntities(new Date())}`)
+          fn => fn(`🍊*NodeStatus* \n😰 One server has disconnected\\! \n\n *用户名*: ${parseEntities(username)} \n *节点名*: ${parseEntities(this.servers[username]?.name)} \n *时间*: ${parseEntities(now)}`)
         )).then();
-        ip && timerMap.delete(ip);
-        timerUsernameMap.delete(username);
+        cb?.(now);
+        timerMap.delete(username);
       },
       options.pushTimeOut * 1000
     );
-    ip && timerMap.set(ip, timer);
-    timerUsernameMap.set(username, timer);
+    timerMap.set(username, timer);
   };
 }
