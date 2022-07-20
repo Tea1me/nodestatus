@@ -1,4 +1,6 @@
-import React, { FC, useCallback, useMemo } from 'react';
+import React, {
+  FC, useCallback, useMemo, useState
+} from 'react';
 import {
   Table,
   Tag,
@@ -17,13 +19,19 @@ import Loading from '../components/Loading';
 import { notify } from '../utils';
 import type { IResp, Event as IEvent } from '../types';
 
+const { Title } = Typography;
+
 const Incidents: FC = () => {
-  const { data, mutate } = useSWR<IResp<IEvent[]>>('/api/event');
-  const { Title } = Typography;
-  const dataList = data?.data?.sort((x, y) => y.id - x.id);
+  const [currentPage, setCurrentPage] = useState(1);
+  // this may not be the optimum solution for using SWR in React
+  const {
+    data: resp,
+    mutate
+  } = useSWR<IResp<{ count: number, list: IEvent[] }>>(`/api/events?size=10&offset=${(currentPage - 1) * 10}`);
+  const { count, list: dataList } = resp?.data || {};
 
   const handleDeleteEvent = useCallback((id: number) => {
-    axios.delete<IResp>(`/api/event/${id}`).then(res => {
+    axios.delete<IResp>(`/api/events/${id}`).then(res => {
       notify('Success', res.data.msg, 'success');
       return mutate();
     });
@@ -96,7 +104,7 @@ const Incidents: FC = () => {
         onClick={() => Modal.confirm({
           title: 'Are you sure you want to delete all items?',
           icon: <ExclamationCircleOutlined />,
-          onOk: () => axios.delete('/api/event').then(res => {
+          onOk: () => axios.delete('/api/events').then(res => {
             notify('Success', res.data.msg, 'success');
             return mutate();
           })
@@ -119,6 +127,11 @@ const Incidents: FC = () => {
               columns={columns}
               footer={Footer}
               rowKey="id"
+              pagination={{
+                total: count,
+                current: currentPage,
+                onChange: page => setCurrentPage(page)
+              }}
             />
           )
           : <Loading />
