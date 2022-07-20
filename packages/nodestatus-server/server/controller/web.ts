@@ -9,6 +9,7 @@ import {
 } from '../model/server';
 import { createRes } from '../lib/utils';
 import { deleteAllEvents, deleteEvent, readEvents } from '../model/event';
+import config from '../lib/config';
 
 async function handleRequest<T>(ctx: Context, handler: Promise<T>): Promise<void> {
   try {
@@ -76,7 +77,9 @@ const modifyOrder: Middleware = async ctx => {
 };
 
 const queryEvents: Middleware = async ctx => {
-  await handleRequest(ctx, readEvents());
+  const size = Number(ctx.query.size) || 10;
+  const offset = Number(ctx.query.offset) || 0;
+  await handleRequest(ctx, readEvents(size, offset).then(([count, list]) => ({ count, list })));
 };
 
 const removeEvent: Middleware = async ctx => {
@@ -87,6 +90,12 @@ const removeEvent: Middleware = async ctx => {
   }
 };
 
+const queryConfig: Middleware = async ctx => ctx.body = {
+  title: config.webTitle,
+  subTitle: config.webSubTitle,
+  headTitle: config.webHeadTitle
+};
+
 export {
   getListServers,
   setServer,
@@ -94,5 +103,6 @@ export {
   removeServer,
   modifyOrder,
   queryEvents,
-  removeEvent
+  removeEvent,
+  queryConfig
 };

@@ -30,12 +30,16 @@ const config = {
   port: Number(process.env.PORT || options.port),
   interval: Number(process.env.INTERVAL || options.interval),
   verbose: process.env.VERBOSE === 'true',
-  theme: process.env.THEME || 'hotaru-theme',
   pingInterval: Number(process.env.PING_INTERVAL || 30),
 
   useIpc: process.env.USE_IPC !== 'false',
   useWeb: process.env.USE_WEB !== 'false',
   usePush: process.env.USE_PUSH !== 'false',
+
+  webTheme: process.env.WEB_THEME || process.env.THEME || 'hotaru-theme',
+  webTitle: process.env.WEB_TITLE ?? 'Server Status',
+  webSubTitle: process.env.WEB_SUBTITLE ?? 'Servers\' Probes Set up with NodeStatus',
+  webHeadTitle: process.env.WEB_HEADTITLE ?? 'NodeStatus',
 
   webUsername: process.env.WEB_USERNAME || 'admin',
   webPassword: process.env.WEB_PASSWORD || '',
